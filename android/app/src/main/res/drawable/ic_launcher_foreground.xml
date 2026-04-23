@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Sun rays -->
+    <path
+        android:fillColor="#E94560"
+        android:pathData="M54,24L56,34L54,44L52,34Z"/>
+    <path
+        android:fillColor="#E94560"
+        android:pathData="M54,64L56,74L54,84L52,74Z"/>
+    <path
+        android:fillColor="#E94560"
+        android:pathData="M24,54L34,56L44,54L34,52Z"/>
+    <path
+        android:fillColor="#E94560"
+        android:pathData="M64,54L74,56L84,54L74,52Z"/>
+    <path
+        android:fillColor="#E94560"
+        android:pathData="M32,32L40,38L36,44L28,38Z"/>
+    <path
+        android:fillColor="#E94560"
+        android:pathData="M72,32L80,38L76,44L68,38Z"/>
+    <path
+        android:fillColor="#E94560"
+        android:pathData="M32,76L40,70L36,64L28,70Z"/>
+    <path
+        android:fillColor="#E94560"
+        android:pathData="M72,76L80,70L76,64L68,70Z"/>
+
+    <!-- Aperture circle background -->
+    <path
+        android:fillColor="#1A1A2E"
+        android:pathData="M54,34a20,20 0,1 1,0 40a20,20 0,1 1,0 -40z"/>
+
+    <!-- Aperture blades (hexagonal pattern) -->
+    <path
+        android:fillColor="#E94560"
+        android:pathData="M54,38L62,46L58,58L50,58L46,46Z"/>
+
+    <!-- Inner circle (lens) -->
+    <path
+        android:fillColor="#0F0F1A"
+        android:pathData="M54,44a8,8 0,1 1,0 16a8,8 0,1 1,0 -16z"/>
+
+    <!-- Light beam indicator -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.6"
+        android:pathData="M54,48L56,50L54,52L52,50Z"/>
+</vector>
