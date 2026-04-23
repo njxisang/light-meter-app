@@ -21,6 +21,9 @@ final exposureServiceProvider = Provider<ExposureService>((ref) {
 /// 当前拍摄模式 Provider
 final shootingModeProvider = StateProvider<String>((ref) => 'auto');
 
+/// 当前选择的光圈 Provider
+final apertureProvider = StateProvider<double>((ref) => ExposureConstants.aperture);
+
 /// 传感器可用性 Provider
 final sensorAvailableProvider = FutureProvider<bool>((ref) async {
   return LightSensorRepository.isAvailable();
@@ -62,7 +65,7 @@ class LightSensorNotifier extends StateNotifier<LightSensorState> {
 
   // 平滑后的lux值
   final List<double> _smoothBuffer = [];
-  static const int _smoothSize = 10;
+  static const int _smoothSize = ExposureConstants.smoothSize;
 
   LightSensorNotifier(this._repository)
       : super(const LightSensorState()) {

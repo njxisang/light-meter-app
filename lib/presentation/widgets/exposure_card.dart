@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/constants/exposure_constants.dart';
 import '../providers/light_sensor_provider.dart';
 
 /// 曝光参数卡片组件
@@ -10,10 +11,17 @@ class ExposureCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final recommendation = ref.watch(exposureRecommendationProvider);
     final sensorState = ref.watch(lightSensorProvider);
+    final selectedAperture = ref.watch(apertureProvider);
 
     if (recommendation == null || sensorState.currentReading == null) {
       return _buildPlaceholder();
     }
+
+    final exposureService = ref.read(exposureServiceProvider);
+    final combinations = exposureService.calculateMultipleCombinations(
+      lux: sensorState.currentReading!.lux,
+      mode: ref.read(shootingModeProvider),
+    );
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -38,50 +46,12 @@ class ExposureCard extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
-          // ISO 和 快门速度
-          Row(
-            children: [
-              Expanded(
-                child: _buildParamItem(
-                  'ISO',
-                  recommendation.iso.toString(),
-                  _getIsoColor(recommendation.iso),
-                ),
-              ),
-              Container(
-                height: 50,
-                width: 1,
-                color: Colors.white.withValues(alpha: 0.2),
-              ),
-              Expanded(
-                child: _buildParamItem(
-                  '快门',
-                  recommendation.shutterSpeed,
-                  Colors.white,
-                ),
-              ),
-            ],
-          ),
+          // 光圈选择器
+          _buildApertureSelector(context, ref, selectedAperture),
           const SizedBox(height: 16),
-          // 光圈
-          Row(
-            children: [
-              Icon(
-                Icons.camera,
-                color: Colors.grey[500],
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '光圈: f/${recommendation.aperture} (固定)',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[400],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
+          // 当前选择的参数
+          _buildCurrentParams(recommendation, selectedAperture),
+          const SizedBox(height: 16),
           // 曝光状态
           _buildExposureIndicator(recommendation.exposureStatus),
           // 警告信息
@@ -114,9 +84,239 @@ class ExposureCard extends ConsumerWidget {
               ),
             ),
           ],
+          const SizedBox(height: 20),
+          // 更多组合推荐
+          _buildMultipleCombinations(combinations, selectedAperture),
         ],
       ),
     );
+  }
+
+  Widget _buildApertureSelector(
+      BuildContext context, WidgetRef ref, double selectedAperture) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '光圈',
+          style: TextStyle(
+            fontSize: 13,
+            color: Colors.grey[500],
+          ),
+        ),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: ExposureConstants.apertureOptions.map((aperture) {
+              final isSelected = aperture == selectedAperture;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () {
+                    ref.read(apertureProvider.notifier).state = aperture;
+                  },
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFFE94560)
+                          : Colors.grey[800],
+                      borderRadius: BorderRadius.circular(20),
+                      border: isSelected
+                          ? null
+                          : Border.all(color: Colors.grey[700]!),
+                    ),
+                    child: Text(
+                      'f/${aperture}',
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.grey[400],
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCurrentParams(recommendation, double selectedAperture) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildParamItem(
+            'ISO',
+            recommendation.iso.toString(),
+            _getIsoColor(recommendation.iso),
+          ),
+        ),
+        Container(
+          height: 50,
+          width: 1,
+          color: Colors.white.withValues(alpha: 0.2),
+        ),
+        Expanded(
+          child: _buildParamItem(
+            '快门',
+            recommendation.shutterSpeed,
+            Colors.white,
+          ),
+        ),
+        Container(
+          height: 50,
+          width: 1,
+          color: Colors.white.withValues(alpha: 0.2),
+        ),
+        Expanded(
+          child: _buildParamItem(
+            '光圈',
+            'f/$selectedAperture',
+            Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMultipleCombinations(
+      List combinations, double selectedAperture) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '更多组合推荐',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Colors.white70,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              // 表头
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      flex: 2,
+                      child: Text(
+                        '光圈',
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
+                    ),
+                    const Expanded(
+                      flex: 2,
+                      child: Text(
+                        '快门',
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
+                    ),
+                    const Expanded(
+                      flex: 2,
+                      child: Text(
+                        'ISO',
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
+                    ),
+                    const Expanded(
+                      flex: 1,
+                      child: Text(
+                        '质量',
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(color: Colors.grey, height: 1),
+              // 组合列表
+              ...combinations.asMap().entries.map((entry) {
+                final index = entry.key;
+                final combo = entry.value;
+                final isSelected = ExposureConstants.apertureOptions[index] == selectedAperture;
+                return Container(
+                  color: isSelected
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.transparent,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          'f/${combo.aperture}',
+                          style: TextStyle(
+                            color: isSelected
+                                ? const Color(0xFFE94560)
+                                : Colors.white70,
+                            fontWeight:
+                                isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          combo.shutterSpeed,
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          combo.iso.toString(),
+                          style: TextStyle(
+                            color: _getIsoColor(combo.iso),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 1,
+                        child: Text(
+                          combo.quality,
+                          style: TextStyle(
+                            color: _getQualityColor(combo.quality),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Color _getQualityColor(String quality) {
+    switch (quality) {
+      case '优秀':
+        return Colors.green;
+      case '良好':
+        return Colors.lightGreen;
+      case '一般':
+        return Colors.orange;
+      default:
+        return Colors.red;
+    }
   }
 
   Widget _buildPlaceholder() {

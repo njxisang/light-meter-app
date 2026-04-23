@@ -5,6 +5,9 @@ class ExposureConstants {
   /// 手机固定光圈
   static const double aperture = 1.8;
 
+  /// 可选光圈列表（手机镜头可模拟的光圈值）
+  static const List<double> apertureOptions = [1.8, 2.0, 2.8, 4.0, 5.6, 8.0];
+
   /// ISO范围
   static const int minIso = 50;
   static const int maxIso = 3200;
@@ -38,8 +41,11 @@ class ExposureConstants {
     1,
   ];
 
-  /// 传感器采样间隔（毫秒）
-  static const int sensorIntervalMs = 100;
+  /// 传感器采样间隔（毫秒）- 更灵敏的采样
+  static const int sensorIntervalMs = 50;
+
+  /// 数据平滑采样次数
+  static const int smoothSize = 5;
 
   /// 历史数据点数
   static const int historyLength = 300; // 30秒 * 10次/秒
