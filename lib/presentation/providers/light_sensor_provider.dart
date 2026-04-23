@@ -24,6 +24,15 @@ final shootingModeProvider = StateProvider<String>((ref) => 'auto');
 /// 当前选择的光圈 Provider
 final apertureProvider = StateProvider<double>((ref) => ExposureConstants.aperture);
 
+/// 当前选择的ISO Provider
+final selectedIsoProvider = StateProvider<int>((ref) => 100);
+
+/// 当前选择的快门速度 Provider
+final selectedShutterProvider = StateProvider<double>((ref) => 1 / 125);
+
+/// 当前计算的目标EV Provider
+final exposureEvProvider = StateProvider<double>((ref) => 10.0);
+
 /// 传感器可用性 Provider
 final sensorAvailableProvider = FutureProvider<bool>((ref) async {
   return LightSensorRepository.isAvailable();
