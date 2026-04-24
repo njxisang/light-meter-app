@@ -5,6 +5,95 @@ import '../../core/constants/exposure_constants.dart';
 import '../../core/utils/exposure_calculator.dart';
 import '../providers/light_sensor_provider.dart';
 
+/// 画质质量等级
+enum ImageQuality {
+  optimal,   // 最优
+  excellent,  // 优秀
+  good,       // 良好
+  fair,       // 一般
+  noisy,      // 噪点较多
+  veryNoisy,  // 严重噪点
+}
+
+extension ImageQualityExtension on ImageQuality {
+  String get label {
+    switch (this) {
+      case ImageQuality.optimal:
+        return '最优';
+      case ImageQuality.excellent:
+        return '优秀';
+      case ImageQuality.good:
+        return '良好';
+      case ImageQuality.fair:
+        return '一般';
+      case ImageQuality.noisy:
+        return '噪点较多';
+      case ImageQuality.veryNoisy:
+        return '严重噪点';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case ImageQuality.optimal:
+        return '画质最佳，细节丰富，色彩纯净';
+      case ImageQuality.excellent:
+        return '画质优秀，轻微噪点但可接受';
+      case ImageQuality.good:
+        return '画质良好，噪点不易察觉';
+      case ImageQuality.fair:
+        return '画质一般，噪点可见但可接受';
+      case ImageQuality.noisy:
+        return '噪点明显，影响细节表现';
+      case ImageQuality.veryNoisy:
+        return '噪点严重，画质明显下降';
+    }
+  }
+
+  Color get color {
+    switch (this) {
+      case ImageQuality.optimal:
+        return const Color(0xFF00E676);
+      case ImageQuality.excellent:
+        return Colors.green;
+      case ImageQuality.good:
+        return Colors.lightGreen;
+      case ImageQuality.fair:
+        return Colors.yellow;
+      case ImageQuality.noisy:
+        return Colors.orange;
+      case ImageQuality.veryNoisy:
+        return Colors.red;
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case ImageQuality.optimal:
+        return Icons.stars;
+      case ImageQuality.excellent:
+        return Icons.check_circle;
+      case ImageQuality.good:
+        return Icons.thumb_up;
+      case ImageQuality.fair:
+        return Icons.warning;
+      case ImageQuality.noisy:
+        return Icons.noise_aware;
+      case ImageQuality.veryNoisy:
+        return Icons.noise_control_off;
+    }
+  }
+
+  static ImageQuality fromIso(int iso) {
+    if (iso <= 100) return ImageQuality.optimal;
+    if (iso <= 200) return ImageQuality.excellent;
+    if (iso <= 400) return ImageQuality.good;
+    if (iso <= 800) return ImageQuality.fair;
+    if (iso <= 1600) return ImageQuality.noisy;
+    return ImageQuality.veryNoisy;
+  }
+}
+
 /// 曝光参数卡片组件 - 支持三个参数联动调节
 class ExposureCard extends ConsumerWidget {
   const ExposureCard({super.key});
@@ -36,6 +125,11 @@ class ExposureCard extends ConsumerWidget {
     final optimalIso = _calculateIso(targetEv, selectedAperture, selectedShutter);
     // 计算最优快门（基于当前选择的光圈和ISO）
     final optimalShutter = _calculateShutter(targetEv, selectedAperture, selectedIso);
+    // 计算最优光圈（基于当前选择的ISO和快门）
+    final optimalAperture = _calculateAperture(targetEv, selectedShutter, selectedIso);
+
+    // 计算当前设置的画质等级
+    final currentQuality = ImageQualityExtension.fromIso(selectedIso);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -50,7 +144,7 @@ class ExposureCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 标题
+          // 标题行
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -62,20 +156,53 @@ class ExposureCard extends ConsumerWidget {
                   color: Colors.white,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE94560).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  'EV ${targetEv.toStringAsFixed(1)}',
-                  style: const TextStyle(
-                    color: Color(0xFFE94560),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE94560).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'EV ${targetEv.toStringAsFixed(1)}',
+                      style: const TextStyle(
+                        color: Color(0xFFE94560),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  // 最优按钮
+                  GestureDetector(
+                    onTap: () => _setOptimalParams(ref, targetEv),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFE94560), Color(0xFFFF6B6B)],
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.auto_awesome, color: Colors.white, size: 14),
+                          SizedBox(width: 4),
+                          Text(
+                            '最优',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -86,8 +213,8 @@ class ExposureCard extends ConsumerWidget {
 
           const SizedBox(height: 16),
 
-          // 实时参数显示
-          _buildRealtimeParams(selectedIso, optimalIso, selectedShutter, optimalShutter),
+          // 画质等级指示
+          _buildQualityIndicator(currentQuality, selectedIso),
 
           const SizedBox(height: 16),
 
@@ -101,6 +228,18 @@ class ExposureCard extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  void _setOptimalParams(WidgetRef ref, double targetEv) {
+    // 最优参数：使用最大光圈(f/1.8)，最低ISO，计算对应快门
+    const optimalAperture = 1.8;
+    final optimalIso = ExposureConstants.minIso;  // 最低ISO
+    final optimalShutter = _calculateShutter(targetEv, optimalAperture, optimalIso);
+
+    ref.read(apertureProvider.notifier).state = optimalAperture;
+    ref.read(selectedIsoProvider.notifier).state = optimalIso;
+    ref.read(selectedShutterProvider.notifier).state = optimalShutter;
+    ref.read(exposureEvProvider.notifier).state = targetEv;
   }
 
   Widget _buildParamSelectors(
@@ -310,35 +449,122 @@ class ExposureCard extends ConsumerWidget {
     );
   }
 
-  Widget _buildRealtimeParams(int selectedIso, int optimalIso, double selectedShutter, double optimalShutter) {
-    final isoDiff = (selectedIso - optimalIso).abs();
-    final shutterDiff = (selectedShutter - optimalShutter).abs();
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _buildParamDisplay('当前ISO', selectedIso.toString(), _getIsoColor(selectedIso)),
-        _buildParamDisplay('当前快门', _shutterToString(selectedShutter), Colors.white),
-        _buildParamDisplay('偏差', isoDiff <= 50 ? '✓ 正常' : '↑↓ 调整', isoDiff <= 50 ? Colors.green : Colors.orange),
-      ],
+  Widget _buildQualityIndicator(ImageQuality quality, int iso) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: quality.color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: quality.color.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(quality.icon, color: quality.color, size: 22),
+              const SizedBox(width: 8),
+              Text(
+                '画质等级: ${quality.label}',
+                style: TextStyle(
+                  color: quality.color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: quality.color.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'ISO $iso',
+                  style: TextStyle(
+                    color: quality.color,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            quality.description,
+            style: TextStyle(color: Colors.grey[400], fontSize: 13),
+          ),
+          const SizedBox(height: 10),
+          // 画质进度条
+          _buildQualityBar(quality, iso),
+        ],
+      ),
     );
   }
 
-  Widget _buildParamDisplay(String label, String value, Color color) {
+  Widget _buildQualityBar(ImageQuality quality, int iso) {
+    // 计算在最优到最差之间的位置 (0.0 - 1.0)
+    double position = _getQualityPosition(iso);
+    const double barWidth = 260;
+    const double indicatorOffset = 6;
+
     return Column(
       children: [
-        Text(
-          label,
-          style: TextStyle(color: Colors.grey[500], fontSize: 11),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: TextStyle(
-            color: color,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
+        SizedBox(
+          height: 20,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // 背景条
+              Container(
+                height: 8,
+                width: barWidth,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(4),
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFF00E676),
+                      Colors.green,
+                      Colors.lightGreen,
+                      Colors.yellow,
+                      Colors.orange,
+                      Colors.red,
+                    ],
+                  ),
+                ),
+              ),
+              // 当前位置指示器
+              Positioned(
+                left: position * (barWidth - indicatorOffset * 2),
+                top: 0,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: quality.color, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('最优', style: TextStyle(color: Colors.grey[600], fontSize: 10)),
+            Text('一般', style: TextStyle(color: Colors.grey[600], fontSize: 10)),
+            Text('噪点', style: TextStyle(color: Colors.grey[600], fontSize: 10)),
+          ],
         ),
       ],
     );
@@ -427,6 +653,13 @@ class ExposureCard extends ConsumerWidget {
     return shutter.clamp(ExposureConstants.minShutter, ExposureConstants.maxShutter);
   }
 
+  double _calculateAperture(double ev, double shutter, int iso) {
+    // N² = 2^EV * ISO * t / baseIso
+    final apertureSq = (math.pow(2, ev) * iso * shutter) / ExposureConstants.baseIso;
+    final aperture = math.sqrt(apertureSq);
+    return aperture.clamp(1.0, 22.0);
+  }
+
   String _shutterToString(double shutter) {
     if (shutter >= 1) {
       return '${shutter.toStringAsFixed(0)}s';
@@ -434,14 +667,6 @@ class ExposureCard extends ConsumerWidget {
       final denominator = (1 / shutter).round();
       return '1/$denominator';
     }
-  }
-
-  Color _getIsoColor(int iso) {
-    if (iso <= 100) return Colors.green;
-    if (iso <= 400) return Colors.lightGreen;
-    if (iso <= 800) return Colors.yellow;
-    if (iso <= 1600) return Colors.orange;
-    return Colors.red;
   }
 
   Widget _buildPlaceholder() {
@@ -460,4 +685,16 @@ class ExposureCard extends ConsumerWidget {
       ),
     );
   }
+}
+
+// Helper function to get MediaQuery width
+double _getIndicatorPosition(int iso) => _getQualityPosition(iso);
+
+double _getQualityPosition(int iso) {
+  if (iso <= 100) return 0.0;
+  if (iso <= 200) return 0.15;
+  if (iso <= 400) return 0.35;
+  if (iso <= 800) return 0.55;
+  if (iso <= 1600) return 0.75;
+  return 1.0;
 }
