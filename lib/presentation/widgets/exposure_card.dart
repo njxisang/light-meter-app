@@ -125,8 +125,6 @@ class ExposureCard extends ConsumerWidget {
     final optimalIso = _calculateIso(targetEv, selectedAperture, selectedShutter);
     // 计算最优快门（基于当前选择的光圈和ISO）
     final optimalShutter = _calculateShutter(targetEv, selectedAperture, selectedIso);
-    // 计算最优光圈（基于当前选择的ISO和快门）
-    final optimalAperture = _calculateAperture(targetEv, selectedShutter, selectedIso);
 
     // 计算当前设置的画质等级
     final currentQuality = ImageQualityExtension.fromIso(selectedIso);
@@ -653,13 +651,6 @@ class ExposureCard extends ConsumerWidget {
     return shutter.clamp(ExposureConstants.minShutter, ExposureConstants.maxShutter);
   }
 
-  double _calculateAperture(double ev, double shutter, int iso) {
-    // N² = 2^EV * ISO * t / baseIso
-    final apertureSq = (math.pow(2, ev) * iso * shutter) / ExposureConstants.baseIso;
-    final aperture = math.sqrt(apertureSq);
-    return aperture.clamp(1.0, 22.0);
-  }
-
   String _shutterToString(double shutter) {
     if (shutter >= 1) {
       return '${shutter.toStringAsFixed(0)}s';
@@ -687,9 +678,7 @@ class ExposureCard extends ConsumerWidget {
   }
 }
 
-// Helper function to get MediaQuery width
-double _getIndicatorPosition(int iso) => _getQualityPosition(iso);
-
+// Helper function to get quality position (0.0 - 1.0)
 double _getQualityPosition(int iso) {
   if (iso <= 100) return 0.0;
   if (iso <= 200) return 0.15;

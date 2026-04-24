@@ -305,9 +305,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const Spacer(),
             TextButton(
               onPressed: () {
-                Navigator.pop(context);
+                final navigator = Navigator.of(context);
+                navigator.pop();
                 Future.delayed(const Duration(milliseconds: 100), () {
-                  _showOpticalKnowledgeDialog(context);
+                  if (mounted) {
+                    _showOpticalKnowledgeDialog(navigator.context);
+                  }
                 });
               },
               child: const Text(
@@ -343,9 +346,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: 8),
               InkWell(
                 onTap: () {
-                  Navigator.pop(context);
+                  final navigator = Navigator.of(context);
+                  navigator.pop();
                   Future.delayed(const Duration(milliseconds: 100), () {
-                    _showOpticalKnowledgeDialog(context);
+                    if (mounted) {
+                      _showOpticalKnowledgeDialog(navigator.context);
+                    }
                   });
                 },
                 child: Container(
