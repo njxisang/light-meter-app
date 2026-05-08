@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/exposure_constants.dart';
 import '../../core/utils/exposure_calculator.dart';
+import '../../data/databases/history_database.dart';
 import '../../data/repositories/light_sensor_repository.dart';
 import '../../domain/models/light_reading.dart';
 import '../../domain/models/exposure_recommendation.dart';
@@ -142,7 +143,7 @@ class LightSensorNotifier extends StateNotifier<LightSensorState> {
     }
   }
 
-  void _addReading(LightReading reading) {
+  void _addReading(LightReading reading) async {
     // 更新平滑缓冲区
     _smoothBuffer.add(reading.lux);
     if (_smoothBuffer.length > _smoothSize) {
@@ -151,16 +152,20 @@ class LightSensorNotifier extends StateNotifier<LightSensorState> {
 
     // 计算平滑值
     final smoothedLux = _smoothBuffer.reduce((a, b) => a + b) / _smoothBuffer.length;
+    final smoothedReading = LightReading.fromLux(smoothedLux);
+
+    // 异步写入数据库
+    HistoryDatabase.insert(smoothedLux, smoothedReading.timestamp, accuracy: reading.accuracy);
 
     // 更新历史
     final newHistory = List<LightReading>.from(state.history);
-    newHistory.add(LightReading.fromLux(smoothedLux));
+    newHistory.add(smoothedReading);
     if (newHistory.length > ExposureConstants.historyLength) {
       newHistory.removeAt(0);
     }
 
     state = state.copyWith(
-      currentReading: LightReading.fromLux(smoothedLux),
+      currentReading: smoothedReading,
       history: newHistory,
     );
   }
