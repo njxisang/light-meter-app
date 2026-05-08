@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../domain/models/light_reading.dart';
 import '../providers/light_sensor_provider.dart';
 
 /// 历史曲线图组件
@@ -63,7 +64,7 @@ class HistoryChart extends ConsumerWidget {
 }
 
 class _ChartPainter extends CustomPainter {
-  final List<dynamic> history;
+  final List<LightReading> history;
 
   _ChartPainter(this.history);
 
@@ -141,6 +142,9 @@ class _ChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ChartPainter oldDelegate) {
-    return oldDelegate.history != history;
+    return oldDelegate.history.length != history.length ||
+        (history.isNotEmpty &&
+            oldDelegate.history.isNotEmpty &&
+            oldDelegate.history.last.lux != history.last.lux);
   }
 }

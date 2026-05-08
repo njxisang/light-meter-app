@@ -3,96 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/exposure_constants.dart';
 import '../../core/utils/exposure_calculator.dart';
+import '../../domain/models/image_quality.dart';
+import '../../providers.dart';
 import '../providers/light_sensor_provider.dart';
-
-/// 画质质量等级
-enum ImageQuality {
-  optimal,   // 最优
-  excellent,  // 优秀
-  good,       // 良好
-  fair,       // 一般
-  noisy,      // 噪点较多
-  veryNoisy,  // 严重噪点
-}
-
-extension ImageQualityExtension on ImageQuality {
-  String get label {
-    switch (this) {
-      case ImageQuality.optimal:
-        return '最优';
-      case ImageQuality.excellent:
-        return '优秀';
-      case ImageQuality.good:
-        return '良好';
-      case ImageQuality.fair:
-        return '一般';
-      case ImageQuality.noisy:
-        return '噪点较多';
-      case ImageQuality.veryNoisy:
-        return '严重噪点';
-    }
-  }
-
-  String get description {
-    switch (this) {
-      case ImageQuality.optimal:
-        return '画质最佳，细节丰富，色彩纯净';
-      case ImageQuality.excellent:
-        return '画质优秀，轻微噪点但可接受';
-      case ImageQuality.good:
-        return '画质良好，噪点不易察觉';
-      case ImageQuality.fair:
-        return '画质一般，噪点可见但可接受';
-      case ImageQuality.noisy:
-        return '噪点明显，影响细节表现';
-      case ImageQuality.veryNoisy:
-        return '噪点严重，画质明显下降';
-    }
-  }
-
-  Color get color {
-    switch (this) {
-      case ImageQuality.optimal:
-        return const Color(0xFF00E676);
-      case ImageQuality.excellent:
-        return Colors.green;
-      case ImageQuality.good:
-        return Colors.lightGreen;
-      case ImageQuality.fair:
-        return Colors.yellow;
-      case ImageQuality.noisy:
-        return Colors.orange;
-      case ImageQuality.veryNoisy:
-        return Colors.red;
-    }
-  }
-
-  IconData get icon {
-    switch (this) {
-      case ImageQuality.optimal:
-        return Icons.stars;
-      case ImageQuality.excellent:
-        return Icons.check_circle;
-      case ImageQuality.good:
-        return Icons.thumb_up;
-      case ImageQuality.fair:
-        return Icons.warning;
-      case ImageQuality.noisy:
-        return Icons.noise_aware;
-      case ImageQuality.veryNoisy:
-        return Icons.noise_control_off;
-    }
-  }
-
-  static ImageQuality fromIso(int iso) {
-    if (iso <= 100) return ImageQuality.optimal;
-    if (iso <= 200) return ImageQuality.excellent;
-    if (iso <= 400) return ImageQuality.good;
-    if (iso <= 800) return ImageQuality.fair;
-    if (iso <= 1600) return ImageQuality.noisy;
-    return ImageQuality.veryNoisy;
-  }
-}
 
 /// 曝光参数卡片组件 - 支持三个参数联动调节
 class ExposureCard extends ConsumerWidget {
@@ -101,25 +14,16 @@ class ExposureCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sensorState = ref.watch(lightSensorProvider);
-    final mode = ref.watch(shootingModeProvider);
     final selectedAperture = ref.watch(apertureProvider);
-    final selectedIso = ref.watch(selectedIsoProvider);
-    final selectedShutter = ref.watch(selectedShutterProvider);
+    final selectedIso = ref.watch(isoProvider);
+    final selectedShutter = ref.watch(shutterProvider);
 
     if (sensorState.currentReading == null) {
       return _buildPlaceholder();
     }
 
     final lux = sensorState.currentReading!.lux;
-    final ev = ExposureCalculator.calculateEV(lux);
-    final targetEv = ExposureCalculator.applyModeAdjustment(ev, mode);
-
-    // 更新当前EV到provider
-    Future.microtask(() {
-      if (ref.exists(exposureEvProvider)) {
-        ref.read(exposureEvProvider.notifier).state = targetEv;
-      }
-    });
+    final targetEv = ref.watch(exposureEvProvider);
 
     // 计算最优ISO（基于当前选择的光圈和快门）
     final optimalIso = _calculateIso(targetEv, selectedAperture, selectedShutter);
@@ -217,7 +121,7 @@ class ExposureCard extends ConsumerWidget {
           const SizedBox(height: 16),
 
           // 曝光状态指示
-          _buildExposureIndicator(targetEv, ev),
+          _buildExposureIndicator(targetEv, ExposureCalculator.calculateEV(lux)),
 
           const SizedBox(height: 20),
 
@@ -235,9 +139,8 @@ class ExposureCard extends ConsumerWidget {
     final optimalShutter = _calculateShutter(targetEv, optimalAperture, optimalIso);
 
     ref.read(apertureProvider.notifier).state = optimalAperture;
-    ref.read(selectedIsoProvider.notifier).state = optimalIso;
-    ref.read(selectedShutterProvider.notifier).state = optimalShutter;
-    ref.read(exposureEvProvider.notifier).state = targetEv;
+    ref.read(isoProvider.notifier).state = optimalIso;
+    ref.read(shutterProvider.notifier).state = optimalShutter;
   }
 
   Widget _buildParamSelectors(
@@ -301,11 +204,13 @@ class ExposureCard extends ConsumerWidget {
                   child: GestureDetector(
                     onTap: () {
                       ref.read(apertureProvider.notifier).state = aperture;
+                      ref.read(sharedPreferencesProvider).setDouble('settings_aperture', aperture);
                       // 联动调整快门以保持曝光
                       final ev = ref.read(exposureEvProvider);
-                      final iso = ref.read(selectedIsoProvider);
+                      final iso = ref.read(isoProvider);
                       final newShutter = _calculateShutter(ev, aperture, iso);
-                      ref.read(selectedShutterProvider.notifier).state = newShutter;
+                      ref.read(shutterProvider.notifier).state = newShutter;
+                      ref.read(sharedPreferencesProvider).setDouble('settings_shutter', newShutter);
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -357,12 +262,14 @@ class ExposureCard extends ConsumerWidget {
                   padding: const EdgeInsets.only(right: 6),
                   child: GestureDetector(
                     onTap: () {
-                      ref.read(selectedIsoProvider.notifier).state = iso;
+                      ref.read(isoProvider.notifier).state = iso;
+                      ref.read(sharedPreferencesProvider).setInt('settings_iso', iso);
                       // 联动调整快门以保持曝光
                       final ev = ref.read(exposureEvProvider);
                       final aperture = ref.read(apertureProvider);
                       final newShutter = _calculateShutter(ev, aperture, iso);
-                      ref.read(selectedShutterProvider.notifier).state = newShutter;
+                      ref.read(shutterProvider.notifier).state = newShutter;
+                      ref.read(sharedPreferencesProvider).setDouble('settings_shutter', newShutter);
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -414,12 +321,14 @@ class ExposureCard extends ConsumerWidget {
                   padding: const EdgeInsets.only(right: 6),
                   child: GestureDetector(
                     onTap: () {
-                      ref.read(selectedShutterProvider.notifier).state = shutter;
+                      ref.read(shutterProvider.notifier).state = shutter;
+                      ref.read(sharedPreferencesProvider).setDouble('settings_shutter', shutter);
                       // 联动调整ISO以保持曝光
                       final ev = ref.read(exposureEvProvider);
                       final aperture = ref.read(apertureProvider);
                       final newIso = _calculateIso(ev, aperture, shutter);
-                      ref.read(selectedIsoProvider.notifier).state = newIso;
+                      ref.read(isoProvider.notifier).state = newIso;
+                      ref.read(sharedPreferencesProvider).setInt('settings_iso', newIso);
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),

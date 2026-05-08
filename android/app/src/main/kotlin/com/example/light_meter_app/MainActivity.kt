@@ -79,8 +79,21 @@ class MainActivity : FlutterActivity(), SensorEventListener {
         // Not used
     }
 
+    override fun onPause() {
+        stopListening();
+        super.onPause();
+    }
+
+    override fun onResume() {
+        super.onResume();
+        if (eventSink != null) {
+            startListening();
+        }
+    }
+
     override fun onDestroy() {
-        stopListening()
-        super.onDestroy()
+        stopListening();
+        eventSink = null;
+        super.onDestroy();
     }
 }

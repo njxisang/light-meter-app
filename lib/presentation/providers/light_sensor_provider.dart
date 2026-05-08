@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/exposure_constants.dart';
+import '../../core/utils/exposure_calculator.dart';
 import '../../data/repositories/light_sensor_repository.dart';
 import '../../domain/models/light_reading.dart';
 import '../../domain/models/exposure_recommendation.dart';
 import '../../domain/services/exposure_service.dart';
+import '../../providers.dart';
 
 /// 光线传感器仓库 Provider
 final lightSensorRepositoryProvider = Provider<LightSensorRepository>((ref) {
@@ -19,19 +22,33 @@ final exposureServiceProvider = Provider<ExposureService>((ref) {
 });
 
 /// 当前拍摄模式 Provider
-final shootingModeProvider = StateProvider<String>((ref) => 'auto');
+final shootingModeProvider = StateProvider<String>((ref) {
+  return ref.watch(sharedPreferencesProvider).getString('settings_shooting_mode') ?? 'auto';
+});
 
 /// 当前选择的光圈 Provider
-final apertureProvider = StateProvider<double>((ref) => ExposureConstants.aperture);
+final apertureProvider = StateProvider<double>((ref) {
+  return ref.watch(sharedPreferencesProvider).getDouble('settings_aperture') ?? ExposureConstants.aperture;
+});
 
 /// 当前选择的ISO Provider
-final selectedIsoProvider = StateProvider<int>((ref) => 100);
+final isoProvider = StateProvider<int>((ref) {
+  return ref.watch(sharedPreferencesProvider).getInt('settings_iso') ?? 100;
+});
 
 /// 当前选择的快门速度 Provider
-final selectedShutterProvider = StateProvider<double>((ref) => 1 / 125);
+final shutterProvider = StateProvider<double>((ref) {
+  return ref.watch(sharedPreferencesProvider).getDouble('settings_shutter') ?? (1 / 125);
+});
 
-/// 当前计算的目标EV Provider
-final exposureEvProvider = StateProvider<double>((ref) => 10.0);
+/// 计算的目标EV Provider（由lux和mode自动推导）
+final exposureEvProvider = Provider<double>((ref) {
+  final sensorState = ref.watch(lightSensorProvider);
+  final mode = ref.watch(shootingModeProvider);
+  if (sensorState.currentReading == null) return 10.0;
+  final ev = ExposureCalculator.calculateEV(sensorState.currentReading!.lux);
+  return ExposureCalculator.applyModeAdjustment(ev, mode);
+});
 
 /// 传感器可用性 Provider
 final sensorAvailableProvider = FutureProvider<bool>((ref) async {

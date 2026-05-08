@@ -18,6 +18,8 @@ class LightSensorRepository {
   bool _isListening = false;
   bool get isListening => _isListening;
 
+  bool _isDisposed = false;
+
   /// 传感器可用性检查
   static Future<bool> isAvailable() async {
     try {
@@ -58,7 +60,11 @@ class LightSensorRepository {
 
   /// 释放资源
   void dispose() {
+    if (_isDisposed) return;
+    _isDisposed = true;
     stopListening();
-    _controller.close();
+    if (!_controller.isClosed) {
+      _controller.close();
+    }
   }
 }
