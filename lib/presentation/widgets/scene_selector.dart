@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/light_sensor_provider.dart';
 
-/// 场景选择器组件
+/// 拍摄模式选择器组件
 class SceneSelector extends ConsumerWidget {
   const SceneSelector({super.key});
 
@@ -20,25 +20,37 @@ class SceneSelector extends ConsumerWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(
-          children: _modes.map((mode) {
-            final isSelected = mode['id'] == currentMode;
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: _ModeButton(
-                label: mode['label'],
-                icon: mode['icon'],
-                isSelected: isSelected,
-                onTap: () {
-                  ref.read(shootingModeProvider.notifier).state = mode['id'];
-                },
-              ),
-            );
-          }).toList(),
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 12, bottom: 4),
+            child: Text(
+              '拍摄模式',
+              style: TextStyle(color: Colors.grey[500], fontSize: 12),
+            ),
+          ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: _modes.map((mode) {
+                final isSelected = mode['id'] == currentMode;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: _ModeButton(
+                    label: mode['label'],
+                    icon: mode['icon'],
+                    isSelected: isSelected,
+                    onTap: () {
+                      ref.read(shootingModeProvider.notifier).state = mode['id'];
+                    },
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
       ),
     );
   }

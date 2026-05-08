@@ -121,7 +121,7 @@ class ExposureCard extends ConsumerWidget {
           const SizedBox(height: 16),
 
           // 曝光状态指示
-          _buildExposureIndicator(targetEv, ExposureCalculator.calculateEV(lux)),
+          _ExposureIndicator(targetEv: targetEv),
 
           const SizedBox(height: 20),
 
@@ -161,166 +161,291 @@ class ExposureCard extends ConsumerWidget {
       child: Column(
         children: [
           // 光圈选择
-          _buildApertureSelector(ref, selectedAperture),
+          _buildApertureSelector(context, ref, selectedAperture),
 
           const SizedBox(height: 12),
           const Divider(color: Colors.grey, height: 1),
           const SizedBox(height: 12),
 
           // ISO选择
-          _buildIsoSelector(ref, selectedIso),
+          _buildIsoSelector(context, ref, selectedIso),
 
           const SizedBox(height: 12),
           const Divider(color: Colors.grey, height: 1),
           const SizedBox(height: 12),
 
           // 快门速度选择
-          _buildShutterSelector(ref, selectedShutter),
+          _buildShutterSelector(context, ref, selectedShutter),
         ],
       ),
     );
   }
 
-  Widget _buildApertureSelector(WidgetRef ref, double selectedAperture) {
-    return Row(
-      children: [
-        const Icon(Icons.camera, color: Colors.grey, size: 20),
-        const SizedBox(width: 12),
-        const SizedBox(
-          width: 70,
-          child: Text(
-            '光圈',
-            style: TextStyle(color: Colors.grey, fontSize: 14),
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: ExposureConstants.apertureOptions.map((aperture) {
-                final isSelected = aperture == selectedAperture;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: GestureDetector(
-                    onTap: () {
-                      ref.read(apertureProvider.notifier).state = aperture;
-                      ref.read(sharedPreferencesProvider).setDouble('settings_aperture', aperture);
+  Widget _buildApertureSelector(BuildContext context, WidgetRef ref, double selectedAperture) {
+    return _buildSelectorRow(
+      icon: Icons.camera,
+      label: '光圈',
+      value: 'f/$selectedAperture',
+      onTap: () => _showAperturePicker(context, ref, selectedAperture),
+    );
+  }
+
+  void _showAperturePicker(BuildContext context, WidgetRef ref, double currentAperture) {
+    final options = ExposureConstants.apertureOptions;
+    double selected = currentAperture;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => Container(
+          height: 320,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text('取消', style: TextStyle(color: Colors.grey[500])),
+                  ),
+                  const Text(
+                    '选择光圈',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      ref.read(apertureProvider.notifier).state = selected;
+                      ref.read(sharedPreferencesProvider).setDouble('settings_aperture', selected);
                       // 联动调整快门以保持曝光
                       final ev = ref.read(exposureEvProvider);
                       final iso = ref.read(isoProvider);
-                      final newShutter = _calculateShutter(ev, aperture, iso);
+                      final newShutter = _calculateShutter(ev, selected, iso);
                       ref.read(shutterProvider.notifier).state = newShutter;
                       ref.read(sharedPreferencesProvider).setDouble('settings_shutter', newShutter);
+                      Navigator.pop(context);
                     },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFFE94560) : Colors.grey[800],
-                        borderRadius: BorderRadius.circular(8),
-                        border: isSelected ? null : Border.all(color: Colors.grey[700]!),
-                      ),
-                      child: Text(
-                        'f/$aperture',
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.grey[400],
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
+                    child: const Text('确认', style: TextStyle(color: Color(0xFFE94560))),
                   ),
-                );
-              }).toList(),
-            ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: ListWheelScrollView.useDelegate(
+                  itemExtent: 50,
+                  perspective: 0.005,
+                  diameterRatio: 1.5,
+                  physics: const FixedExtentScrollPhysics(),
+                  controller: FixedExtentScrollController(
+                    initialItem: options.indexOf(currentAperture).clamp(0, options.length - 1),
+                  ),
+                  onSelectedItemChanged: (index) {
+                    setState(() => selected = options[index]);
+                  },
+                  childDelegate: ListWheelChildBuilderDelegate(
+                    childCount: options.length,
+                    builder: (context, index) {
+                      final aperture = options[index];
+                      final isSelected = aperture == selected;
+                      return Center(
+                        child: Text(
+                          'f/$aperture',
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.grey[500],
+                            fontSize: isSelected ? 24 : 18,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 
-  Widget _buildIsoSelector(WidgetRef ref, int selectedIso) {
+  Widget _buildIsoSelector(BuildContext context, WidgetRef ref, int selectedIso) {
     final isoOptions = [50, 64, 100, 125, 160, 200, 250, 320, 400, 500, 640, 800, 1000, 1250, 1600, 2000, 2500, 3200];
 
-    return Row(
-      children: [
-        const Icon(Icons.iso, color: Colors.grey, size: 20),
-        const SizedBox(width: 12),
-        const SizedBox(
-          width: 70,
-          child: Text(
-            'ISO',
-            style: TextStyle(color: Colors.grey, fontSize: 14),
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: isoOptions.map((iso) {
-                final isSelected = iso == selectedIso;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: GestureDetector(
-                    onTap: () {
-                      ref.read(isoProvider.notifier).state = iso;
-                      ref.read(sharedPreferencesProvider).setInt('settings_iso', iso);
+    return _buildSelectorRow(
+      icon: Icons.iso,
+      label: 'ISO',
+      value: selectedIso.toString(),
+      onTap: () => _showIsoPicker(context, ref, selectedIso, isoOptions),
+    );
+  }
+
+  void _showIsoPicker(BuildContext context, WidgetRef ref, int currentIso, List<int> options) {
+    int selected = currentIso;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => Container(
+          height: 320,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text('取消', style: TextStyle(color: Colors.grey[500])),
+                  ),
+                  const Text(
+                    '选择ISO',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      ref.read(isoProvider.notifier).state = selected;
+                      ref.read(sharedPreferencesProvider).setInt('settings_iso', selected);
                       // 联动调整快门以保持曝光
                       final ev = ref.read(exposureEvProvider);
                       final aperture = ref.read(apertureProvider);
-                      final newShutter = _calculateShutter(ev, aperture, iso);
+                      final newShutter = _calculateShutter(ev, aperture, selected);
                       ref.read(shutterProvider.notifier).state = newShutter;
                       ref.read(sharedPreferencesProvider).setDouble('settings_shutter', newShutter);
+                      Navigator.pop(context);
                     },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFFE94560) : Colors.grey[800],
-                        borderRadius: BorderRadius.circular(8),
-                        border: isSelected ? null : Border.all(color: Colors.grey[700]!),
-                      ),
-                      child: Text(
-                        iso.toString(),
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.grey[400],
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
+                    child: const Text('确认', style: TextStyle(color: Color(0xFFE94560))),
                   ),
-                );
-              }).toList(),
-            ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: ListWheelScrollView.useDelegate(
+                  itemExtent: 50,
+                  perspective: 0.005,
+                  diameterRatio: 1.5,
+                  physics: const FixedExtentScrollPhysics(),
+                  controller: FixedExtentScrollController(
+                    initialItem: options.indexOf(currentIso).clamp(0, options.length - 1),
+                  ),
+                  onSelectedItemChanged: (index) {
+                    setState(() => selected = options[index]);
+                  },
+                  childDelegate: ListWheelChildBuilderDelegate(
+                    childCount: options.length,
+                    builder: (context, index) {
+                      final iso = options[index];
+                      final isSelected = iso == selected;
+                      return Center(
+                        child: Text(
+                          iso.toString(),
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.grey[500],
+                            fontSize: isSelected ? 24 : 18,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 
-  Widget _buildShutterSelector(WidgetRef ref, double selectedShutter) {
-    final shutters = [1/8000.0, 1/4000.0, 1/2000.0, 1/1000.0, 1/500.0, 1/250.0, 1/125.0, 1/60.0, 1/30.0, 1/15.0, 1/8.0, 1/4.0, 1/2.0, 1.0];
-
-    return Row(
-      children: [
-        const Icon(Icons.shutter_speed, color: Colors.grey, size: 20),
-        const SizedBox(width: 12),
-        const SizedBox(
-          width: 70,
-          child: Text(
-            '快门',
-            style: TextStyle(color: Colors.grey, fontSize: 14),
-          ),
+  Widget _buildSelectorRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(8),
         ),
-        Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: shutters.map((shutter) {
-                final isSelected = (shutter - selectedShutter).abs() < 0.0001;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: GestureDetector(
-                    onTap: () {
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.grey, size: 20),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 70,
+              child: Text(
+                label,
+                style: const TextStyle(color: Colors.grey, fontSize: 14),
+              ),
+            ),
+            Expanded(child: Center(child: Text(value, style: const TextStyle(color: Colors.white, fontSize: 14)))),
+            Icon(Icons.unfold_more, color: Colors.grey[600], size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShutterSelector(BuildContext context, WidgetRef ref, double selectedShutter) {
+    final shutters = [1/8000.0, 1/4000.0, 1/2000.0, 1/1000.0, 1/500.0, 1/250.0, 1/125.0, 1/60.0, 1/30.0, 1/15.0, 1/8.0, 1/4.0, 1/2.0, 1.0];
+    final shutterLabels = shutters.map(_shutterToString).toList();
+    // 找到最近的 shutter 索引
+    int selectedIndex = 0;
+    double minDiff = double.infinity;
+    for (int i = 0; i < shutters.length; i++) {
+      final diff = (shutters[i] - selectedShutter).abs();
+      if (diff < minDiff) {
+        minDiff = diff;
+        selectedIndex = i;
+      }
+    }
+
+    return _buildSelectorRow(
+      icon: Icons.shutter_speed,
+      label: '快门',
+      value: _shutterToString(selectedShutter),
+      onTap: () => _showShutterPicker(context, ref, selectedShutter, shutters, selectedIndex),
+    );
+  }
+
+  void _showShutterPicker(BuildContext context, WidgetRef ref, double currentShutter, List<double> options, int currentIndex) {
+    int selectedIndex = currentIndex;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => Container(
+          height: 320,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text('取消', style: TextStyle(color: Colors.grey[500])),
+                  ),
+                  const Text(
+                    '选择快门速度',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      final shutter = options[selectedIndex];
                       ref.read(shutterProvider.notifier).state = shutter;
                       ref.read(sharedPreferencesProvider).setDouble('settings_shutter', shutter);
                       // 联动调整ISO以保持曝光
@@ -329,30 +454,45 @@ class ExposureCard extends ConsumerWidget {
                       final newIso = _calculateIso(ev, aperture, shutter);
                       ref.read(isoProvider.notifier).state = newIso;
                       ref.read(sharedPreferencesProvider).setInt('settings_iso', newIso);
+                      Navigator.pop(context);
                     },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFFE94560) : Colors.grey[800],
-                        borderRadius: BorderRadius.circular(8),
-                        border: isSelected ? null : Border.all(color: Colors.grey[700]!),
-                      ),
-                      child: Text(
-                        _shutterToString(shutter),
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.grey[400],
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
+                    child: const Text('确认', style: TextStyle(color: Color(0xFFE94560))),
                   ),
-                );
-              }).toList(),
-            ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: ListWheelScrollView.useDelegate(
+                  itemExtent: 50,
+                  perspective: 0.005,
+                  diameterRatio: 1.5,
+                  physics: const FixedExtentScrollPhysics(),
+                  controller: FixedExtentScrollController(initialItem: selectedIndex),
+                  onSelectedItemChanged: (index) {
+                    setState(() => selectedIndex = index);
+                  },
+                  childDelegate: ListWheelChildBuilderDelegate(
+                    childCount: options.length,
+                    builder: (context, index) {
+                      final isSelected = index == selectedIndex;
+                      return Center(
+                        child: Text(
+                          _shutterToString(options[index]),
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.grey[500],
+                            fontSize: isSelected ? 24 : 18,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -477,52 +617,6 @@ class ExposureCard extends ConsumerWidget {
     );
   }
 
-  Widget _buildExposureIndicator(double targetEv, double actualEv) {
-    final diff = targetEv - actualEv;
-    final absDiff = diff.abs();
-
-    String status;
-    Color color;
-    IconData icon;
-
-    if (absDiff < 0.5) {
-      status = '曝光正常';
-      color = Colors.green;
-      icon = Icons.check_circle;
-    } else if (diff > 0) {
-      status = '稍过曝 ${diff.toStringAsFixed(1)} EV';
-      color = Colors.orange;
-      icon = Icons.exposure_plus_1;
-    } else {
-      status = '稍欠曝 ${absDiff.toStringAsFixed(1)} EV';
-      color = Colors.cyan;
-      icon = Icons.exposure_minus_1;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 8),
-          Text(
-            status,
-            style: TextStyle(color: color, fontWeight: FontWeight.w500),
-          ),
-          const Spacer(),
-          Text(
-            '调整任一参数，其他联动变化',
-            style: TextStyle(color: Colors.grey[600], fontSize: 11),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildExposureTriangleInfo() {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -584,6 +678,94 @@ class ExposureCard extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+/// 曝光状态指示器组件
+class _ExposureIndicator extends ConsumerWidget {
+  final double targetEv;
+
+  const _ExposureIndicator({required this.targetEv});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 获取当前用户设置的参数
+    final aperture = ref.watch(apertureProvider);
+    final iso = ref.watch(isoProvider);
+    final shutter = ref.watch(shutterProvider);
+
+    // 计算当前设置产生的EV (用于判断曝光状态)
+    // EV = log2(N² * ISO / t) - 3 (减去log2(100)≈6.64作为基准偏移)
+    // C标准：EV = log2(N²/t)，在ISO 100时，EV = log2(N²/t) + log2(ISO/100)
+    // 即 EV = log2(N² * ISO / (t * 100))
+    final currentEv = (math.log(aperture * aperture * iso / (shutter * 100)) / math.ln2);
+
+    final diff = currentEv - targetEv;
+    final absDiff = diff.abs();
+
+    String status;
+    Color color;
+    IconData icon;
+    String hint;
+
+    if (absDiff < 0.3) {
+      status = '✓ 曝光正常';
+      color = const Color(0xFF00E676);
+      icon = Icons.check_circle;
+      hint = '当前设置曝光合适';
+    } else if (diff > 0) {
+      status = '↑ 过曝 ${diff.toStringAsFixed(1)} EV';
+      color = Colors.orange;
+      icon = Icons.arrow_upward;
+      hint = _getOverExposureHint(diff);
+    } else {
+      status = '↓ 欠曝 ${absDiff.toStringAsFixed(1)} EV';
+      color = Colors.blue;
+      icon = Icons.arrow_downward;
+      hint = _getUnderExposureHint(absDiff);
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  status,
+                  style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                Text(
+                  hint,
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getOverExposureHint(double diff) {
+    if (diff >= 2) return '大幅过曝，建议大幅降低ISO或加快快门';
+    if (diff >= 1) return '过曝，建议提高ISO或加快快门';
+    return '轻微过曝，可适当调整';
+  }
+
+  String _getUnderExposureHint(double diff) {
+    if (diff >= 2) return '严重欠曝，建议提高ISO或放大光圈';
+    if (diff >= 1) return '欠曝，建议降低ISO或放大光圈';
+    return '轻微欠曝，可适当调整';
   }
 }
 

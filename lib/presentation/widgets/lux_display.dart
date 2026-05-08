@@ -41,7 +41,7 @@ class LuxDisplay extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          // 场景类型
+          // 环境类型（替代"当前场景"）
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             decoration: BoxDecoration(
@@ -51,13 +51,20 @@ class LuxDisplay extends ConsumerWidget {
                 color: _getSceneColor(scene).withValues(alpha: 0.5),
               ),
             ),
-            child: Text(
-              '当前场景: $scene',
-              style: TextStyle(
-                fontSize: 16,
-                color: _getSceneColor(scene),
-                fontWeight: FontWeight.w500,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.wb_sunny_outlined, color: _getSceneColor(scene), size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  '环境: $scene',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: _getSceneColor(scene),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
           // 传感器不可用提示
@@ -89,6 +96,10 @@ class LuxDisplay extends ConsumerWidget {
 
   String _formatLux(double lux) {
     if (lux >= 100000) {
+      // 超过99999用科学计数法
+      if (lux >= 1000000) {
+        return '${(lux / 1000000).toStringAsFixed(1)}M';
+      }
       return '99999+';
     }
     return lux.round().toString().replaceAllMapped(

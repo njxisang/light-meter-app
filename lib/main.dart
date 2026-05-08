@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'core/constants/app_colors.dart';
 import 'providers.dart';
 import 'presentation/screens/home_screen.dart';
 
@@ -9,11 +10,11 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // 设置状态栏样式
-  SystemChrome.setSystemUIOverlayStyle(
+SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
-      statusBarColor: Color(0xFF1A1A2E),
+      statusBarColor: AppColors.surfaceLight,
       statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Color(0xFF0F0F1A),
+      systemNavigationBarColor: AppColors.background,
       systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
@@ -48,20 +49,19 @@ class LightMeterApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0F0F1A),
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFFE94560),
-          secondary: Color(0xFF16213E),
-          surface: Color(0xFF1A1A2E),
+        scaffoldBackgroundColor: AppColors.background,
+        colorScheme: ColorScheme.dark(
+          primary: AppColors.primary,
+          secondary: AppColors.surface,
+          surface: AppColors.surfaceLight,
           error: Colors.red,
         ),
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF1A1A2E),
+          backgroundColor: AppColors.surfaceLight,
           foregroundColor: Colors.white,
-          elevation: 0,
         ),
         dialogTheme: DialogThemeData(
-          backgroundColor: const Color(0xFF1A1A2E),
+          backgroundColor: AppColors.surfaceLight,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),

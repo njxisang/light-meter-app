@@ -50,6 +50,16 @@ final exposureEvProvider = Provider<double>((ref) {
   return ExposureCalculator.applyModeAdjustment(ev, mode);
 });
 
+/// 传感器采样间隔 Provider（毫秒）
+final sensorIntervalMsProvider = StateProvider<int>((ref) {
+  return ref.watch(sharedPreferencesProvider).getInt('settings_sensor_interval_ms') ?? 50;
+});
+
+/// 数据平滑采样次数 Provider
+final smoothSizeProvider = StateProvider<int>((ref) {
+  return ref.watch(sharedPreferencesProvider).getInt('settings_smooth_size') ?? 5;
+});
+
 /// 传感器可用性 Provider
 final sensorAvailableProvider = FutureProvider<bool>((ref) async {
   return LightSensorRepository.isAvailable();
@@ -90,8 +100,8 @@ class LightSensorNotifier extends StateNotifier<LightSensorState> {
   StreamSubscription<LightReading>? _subscription;
 
   // 平滑后的lux值
-  final List<double> _smoothBuffer = [];
-  static const int _smoothSize = ExposureConstants.smoothSize;
+  List<double> _smoothBuffer = [];
+  int _smoothSize = ExposureConstants.smoothSize;
 
   LightSensorNotifier(this._repository)
       : super(const LightSensorState()) {
@@ -115,6 +125,20 @@ class LightSensorNotifier extends StateNotifier<LightSensorState> {
           state = state.copyWith(error: error.toString());
         },
       );
+    }
+  }
+
+  /// 更新平滑参数（由设置页面调用）
+  void updateSmoothParams({int? intervalMs, int? smoothSize}) {
+    if (intervalMs != null) {
+      _repository.startListening(interval: Duration(milliseconds: intervalMs));
+    }
+    if (smoothSize != null) {
+      _smoothSize = smoothSize;
+      // 调整缓冲区大小
+      if (_smoothBuffer.length > _smoothSize) {
+        _smoothBuffer = _smoothBuffer.sublist(_smoothBuffer.length - _smoothSize);
+      }
     }
   }
 

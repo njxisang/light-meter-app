@@ -3,12 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/light_reading.dart';
 import '../providers/light_sensor_provider.dart';
 
-/// 历史曲线图组件
-class HistoryChart extends ConsumerWidget {
+/// 历史曲线图组件 - 支持触摸查看具体数值
+class HistoryChart extends ConsumerStatefulWidget {
   const HistoryChart({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HistoryChart> createState() => _HistoryChartState();
+}
+
+class _HistoryChartState extends ConsumerState<HistoryChart> {
+  int? _selectedIndex;
+  Offset? _touchPosition;
+
+  @override
+  Widget build(BuildContext context) {
     final sensorState = ref.watch(lightSensorProvider);
     final history = sensorState.history;
 
@@ -33,13 +41,20 @@ class HistoryChart extends ConsumerWidget {
                 size: 18,
               ),
               const SizedBox(width: 8),
-              const Text(
-                '历史曲线 (最近30秒)',
+              Text(
+                '历史曲线',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey,
+                  color: Colors.grey[400],
                 ),
               ),
+              if (history.isNotEmpty) ...[
+                const Spacer(),
+                Text(
+                  '${history.length}点',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 11),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
@@ -52,10 +67,69 @@ class HistoryChart extends ConsumerWidget {
                       style: TextStyle(color: Colors.grey),
                     ),
                   )
-                : CustomPaint(
-                    size: const Size(double.infinity, 100),
-                    painter: _ChartPainter(history),
+                : GestureDetector(
+                    onPanUpdate: (details) => _onTouch(details.localPosition, history),
+                    onPanEnd: (_) => setState(() {
+                      _selectedIndex = null;
+                      _touchPosition = null;
+                    }),
+                    onTapDown: (details) => _onTouch(details.localPosition, history),
+                    onTapUp: (_) => setState(() {
+                      _selectedIndex = null;
+                      _touchPosition = null;
+                    }),
+                    child: Stack(
+                      children: [
+                        CustomPaint(
+                          size: const Size(double.infinity, 100),
+                          painter: _ChartPainter(history),
+                        ),
+                        if (_selectedIndex != null && _touchPosition != null)
+                          Positioned(
+                            left: _touchPosition!.dx - 30,
+                            top: 0,
+                            child: _buildTooltip(history[_selectedIndex!]),
+                          ),
+                      ],
+                    ),
                   ),
+          ),
+          if (history.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              '触摸曲线查看具体数值',
+              style: TextStyle(color: Colors.grey[600], fontSize: 10),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _onTouch(Offset position, List<LightReading> history) {
+    if (history.isEmpty) return;
+    final pointCount = history.length;
+    final stepX = context.size!.width / (pointCount - 1).clamp(1, double.infinity);
+    final index = (position.dx / stepX).round().clamp(0, pointCount - 1);
+    setState(() {
+      _selectedIndex = index;
+      _touchPosition = position;
+    });
+  }
+
+  Widget _buildTooltip(LightReading reading) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '${reading.lux.round()} Lux',
+            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
           ),
         ],
       ),

@@ -111,4 +111,16 @@ class ExposureCalculator {
     }
     return '晴天';
   }
+
+  /// 计算当前参数设置相对于基准(ISO100, f/1.8, 1s)的EV偏移量
+  /// 用于修正曝光指示器的比较逻辑
+  /// 返回值表示：当前设置比基准曝光多(正)或少(负)多少EV
+  static double calculateEVOffset(double aperture, int iso, double shutter) {
+    // 基准: ISO100, f/1.8, t=1s 时的EV偏移为0
+    // EV_offset = log2(N²/t) - log2(ISO/100)
+    // = log2(N²/(t * ISO/100))
+    // = log2(100 * N² / (t * ISO))
+    final evOffset = math.log(100 * aperture * aperture / (shutter * iso)) / math.ln2;
+    return evOffset;
+  }
 }
